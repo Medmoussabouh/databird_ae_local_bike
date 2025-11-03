@@ -1,0 +1,1 @@
+select count(distinct order_staff_id) as staff_count from {{ ref('int_local_bike__sales') }}

@@ -1,0 +1,522 @@
+version: 2
+
+models:
+  - name: mrt_local_bike__order_turnover_per_period
+    description: "This model provide a turnover/total orders,Average Order Value  of the orders per date"
+    columns:
+      - name: order_date
+        description: "Date of the order"
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: "DATE('1970-01-01')"
+                max_value: "CURRENT_DATE()"
+                strictly: false
+                
+      - name: total_revenue
+        description: "Total Revenue"
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                strictly: false
+
+      - name: total_orders
+        description: "Number of Orders"
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                strictly: false
+
+      - name: aov
+        description: "Average Order Value (Total Revenue ÷ Number of Orders"
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                strictly: false
+
+
+  - name: mrt_local_bike__pareto_products
+    description: "Product Pareto (A/B/C) with stock."
+    columns:
+      - name: product_id
+        tests: [not_null, unique]
+      - name: total_revenue
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                strictly: false
+
+      - name: cumulative_share
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                max_value: 1
+
+      - name: pareto_class
+        tests:
+          - accepted_values:
+              name: accepted_values_state
+              arguments:
+                values: ['A','B','C']
+
+
+  - name: mrt_local_bike__stores_stats
+    description: "Number of distinct stores used as metric on the dashboard."
+    columns:
+      - name: store_count
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+
+  - name: mrt_local_bike__stocks_stats
+    description: "Number of distinct product on stock used as metric on the dashboard."
+    columns:
+      - name: product_stock_count
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+
+  - name: mrt_local_bike__staffs_stats
+    description: "Number of distinct staff used as metric on the dashboard."
+    columns:
+      - name: staff_count
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+
+  - name: mrt_local_bike__products_stats
+    description: "Number of distinct existing product from the catalog used as metric on the dashboard."
+    columns:
+      - name: product_count
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+
+  - name: mrt_local_bike__customers_stats
+    description: "Number of distinct customer used as metric on the dashboard."
+    columns:
+      - name: customer_count
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+
+
+  - name: mrt_local_bike__sales_per_location
+    description: >
+      Aggregated sales model computing total revenue, total orders, and
+      Average Order Value (AOV) per store_state, product, and day.
+      Partitioned by `order_date` and clustered on (`store_state`, `product_id`)
+      for efficient queries.
+    
+    columns:
+      - name: order_date
+        description: "Date of the order (used for partitioning)."
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: "DATE('1970-01-01')"
+                max_value: "CURRENT_DATE()"
+
+      - name: store_state
+        description: "US state where the store is located."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: "{{ var('allowed_state') }}"
+
+      - name: product_id
+        description: "Foreign key linking to the products model."
+        tests:
+          - not_null
+          - relationships:
+              name: sales_product_id_foreign_key_in_stg_local_bike__products
+              arguments:
+                to: ref('stg_local_bike__products')
+                field: product_id
+
+      - name: total_revenue
+        description: "Sum of revenue for each store_state, product, and date."
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+
+      - name: total_orders
+        description: "Number of distinct orders for each store_state, product, and date."
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+
+      - name: aov
+        description: "Average Order Value = total_revenue / total_orders."
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+
+  - name: mrt_local_bike__sales_per_product_brand
+    description: >
+      Aggregated sales model computing total revenue by store state and product brand.
+      Used for analyzing brand performance across states.
+
+    columns:
+      - name: store_state
+        description: "US state where the store is located."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: "{{ var('allowed_state') }}"
+
+      - name: product_brand_name
+        description: "Brand name of the product."
+        tests:
+          - not_null
+
+      - name: total_revenue
+        description: "Total revenue aggregated by store_state and product_brand_name."
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+
+  - name: mrt_local_bike__sales_per_product_category
+    description: >
+      Aggregated sales model computing total revenue by store state and product category.
+      Used for analyzing category performance accross state.
+
+    columns:
+      - name: store_state
+        description: "US state where the store is located."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: "{{ var('allowed_state') }}"
+
+      - name: product_category_name
+        description: "Product category name."
+        tests:
+          - not_null
+
+      - name: total_revenue
+        description: "Total revenue aggregated by store_state and product_category_name."
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+
+  - name: mrt_local_bike__sales_per_product_revenue_quantity
+    description: >
+      Aggregated sales metrics per product  by store state.
+      Includes average list price, total sold quantity, and total revenue.
+
+    columns:
+        - name: store_state
+          description: "US state where the store is located."
+          tests:
+            - not_null
+            - accepted_values:
+                arguments:
+                  values: "{{ var('allowed_state') }}"
+
+        - name: product_name
+          description: "Product name."
+          tests:
+            - not_null
+
+        - name: order_item_list_price
+          description: "Average list price of the product per state."
+          tests:
+            - not_null
+            - dbt_expectations.expect_column_values_to_be_between:
+                arguments:
+                  min_value: 0
+
+        - name: total_sold_quantity
+          description: "Total quantity sold of the product."
+          tests:
+            - not_null
+            - dbt_expectations.expect_column_values_to_be_between:
+                arguments:
+                  min_value: 0
+
+        - name: total_revenue
+          description: "Total revenue for this product."
+          tests:
+            - not_null
+            - dbt_expectations.expect_column_values_to_be_between:
+                arguments:
+                  min_value: 0
+
+  - name : mrt_local_bike__top5_cities_per_state
+    description: >
+      For each state, ranks cities by total_revenue and keeps the Top 5.
+      Includes average list price, total sold quantity, and total revenue.
+    columns:
+      - name: store_state
+        description: "US state."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: "{{ var('allowed_state') }}"
+
+      - name: store_city
+        description: "City name within the state."
+        tests:
+          - not_null
+
+      - name: order_count
+        description: "Distinct order count for (store_state, store_city)."
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+
+      - name: total_revenue
+        description: "Total revenue for (store_state, store_city)."
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+
+      - name: city_rank_revenue_per_state
+        description: "Rank of the city by revenue within its state , only TOP5 kept."
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 1
+                max_value: 5
+
+  - name: mrt_local_bike__top5_customers_per_state
+    description: >
+      For each state, ranks customers by total_revenue and keeps the Top 5.
+      Includes order count and total revenue per (store_state, customer).
+    columns:
+      - name: store_state
+        description: "US state."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: "{{ var('allowed_state') }}"
+
+      - name: order_customer_id
+        description: "Customer identifier within the sales data."
+        tests:
+          - not_null
+
+      - name: customer_full_name
+        description: "Customer full name."
+        tests:
+          - not_null
+
+      - name: order_count
+        description: "Distinct order count for (store_state, order_customer_id)."
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+
+      - name: total_revenue
+        description: "Total revenue for (store_state, order_customer_id)."
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+
+      - name: customer_rank_revenue_per_state
+        description: "Rank of the customer by revenue within its state, only TOP5 kept."
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 1
+                max_value: 5
+
+  - name: mrt_local_bike__top5_staffs_per_state
+    description: >
+      For each state, ranks staff by total_revenue and keeps the Top 5.
+      Includes order count and total revenue per (store_state, staff).
+
+    columns:
+      - name: store_state
+        description: "US state."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: "{{ var('allowed_state') }}"
+
+      - name: order_staff_id
+        description: "Unique identifier of the staff member responsible for the orders."
+        tests:
+          - not_null
+
+      - name: staff_full_name
+        description: "Full name of the staff member."
+        tests:
+          - not_null
+
+      - name: order_count
+        description: "Distinct order count for (store_state, order_staff_id)."
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+
+      - name: total_revenue
+        description: "Total revenue for (store_state, order_staff_id)."
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+
+      - name: staff_rank_revenue_per_state
+        description: "Rank of the staff member by revenue within its state, only TOP5 kept."
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 1
+                max_value: 5
+
+  - name: mrt_local_bike__top5_stores_per_state
+    description: >
+      For each state, ranks stores by total_revenue and keeps the Top 5.
+      Includes distinct order count and total revenue per (store_state, store_name).
+
+    columns:
+      - name: store_state
+        description: "US state."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: "{{ var('allowed_state') }}"
+
+      - name: store_name
+        description: "Store display name."
+        tests:
+          - not_null
+
+      - name: order_count
+        description: "Distinct order count for (store_state, store_name)."
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+
+      - name: total_revenue
+        description: "Total revenue for (store_state, store_name)."
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+
+      - name: store_rank_revenue_per_state
+        description: "Rank of the store by revenue within its state; only TOP5 kept."
+        # tests:
+        #   - not_null
+        #   - dbt_expectations.expect_column_values_to_be_between:
+        #       arguments:
+        #         min_value: 1
+        #         max_value: 5
+
+      - name: store_rank_revenue_per_state
+        description: >
+            Identifies customers with invalid contact information by combining email and phone validation results.  
+            Flags whether the invalid field is the email, phone, or both, enabling data quality monitoring and cleanup.
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 1
+                max_value: 5
+
+  - name: mrt_local_bike__customer_wrong_contact
+    description: >
+      Detects customers with invalid email and/or phone information based on validation flags.  
+      Indicates which fields are invalid (email, phone, or both) to support data quality monitoring.
+
+    columns:
+      - name: customer_id
+        description: "Unique identifier of the customer."
+        tests:
+          - not_null
+          - unique
+          - relationships:
+              name: fk_invalid_contacts_to_customers
+              arguments:
+                to: ref('stg_local_bike__customers')
+                field: customer_id
+
+      - name: customer_first_name
+        description: "Customer firstname."
+
+      - name: customer_last_name
+        description: "Customer lastname."
+
+      - name: customer_phone
+        description: "Customer phone."
+
+      - name: customer_email
+        description: "Customer email."
+
+      - name: email_validation
+        description: "Boolean flag indicating whether the customer's email format is valid."
+        tests:
+          - not_null
+
+      - name: phone_validation
+        description: "Boolean flag indicating whether the customer's phone format is valid."
+        tests:
+          - not_null
+
+      - name: invalid_fields
+        description: >
+          Text field listing which contact fields are invalid ('email', 'phone', or 'email , phone').  
+          Derived from email_validation and phone_validation flags.
+        tests:
+          - dbt_expectations.expect_column_values_to_be_in_set:
+              arguments:
+                value_set: ['email', 'phone', 'email , phone']

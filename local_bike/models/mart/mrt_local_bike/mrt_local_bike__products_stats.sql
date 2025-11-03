@@ -1,0 +1,1 @@
+select * from {{ ref('int_local_bike__products_stats') }}

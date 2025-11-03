@@ -1,0 +1,57 @@
+version: 2
+
+models:
+  - name: int_local_bike__customers_wrong_contact
+    description: "This model check the validation process of the customers phone and email"
+    columns:
+      - name: customer_id
+        description: "Primary key, unique identifier for each brand."
+        tests:
+          - not_null
+          - unique  
+
+      - name: customer_first_name
+        description: "Customer firstname."
+
+      - name: customer_last_name
+        description: "Customer lastname."
+      
+      - name: customer_phone
+        description: "Customer phone."
+
+      - name: customer_email
+        description: "Customer email."
+      
+      - name: phone_validation
+        description: 'Boolean field that confirms if the phone field is valid based on regex ^\(\d{3}\)\s\d{3}-\d{4}$'
+
+      - name: email_validation
+        description: 'Boolean field that confirms if the email field is valid based on regex ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
+
+  - name: int_local_bike__global_stock
+    description: "This model provide the global product stock without considering the stores"
+    columns:
+      - name: product_id
+        description: "Primary key, unique identifier for each product."
+        tests:
+          - not_null
+          - unique  
+
+      - name: available_quantity
+        description: "the global stock for the product."
+        tests:
+          - not_null
+
+  - name: int_local_bike__order_order_items
+    description: "This model provide order item detail including order and product details"
+
+  - name: int_local_bike__products_stats
+    description: "This model provide product count"
+    
+  - name: int_local_bike__products
+    description: >
+      Product attributes enriched with brand and category names from staging.
+      Built from stg_local_bike__products joined to brands and categories.
+
+  - name: int_local_bike__sales
+    description: Combining sales items with store, staff, and customer details.  

@@ -1,0 +1,437 @@
+version: 2
+
+
+models:
+  - name: stg_local_bike__brands
+    description: "This model contains information about product's brands"
+    columns:
+      - name: brand_id
+        description: "Primary key, unique identifier for each brand."
+        tests:
+          - not_null
+          - unique
+
+      - name: brand_name
+        description: "Brand's name"
+        tests:
+          - not_null
+          - unique
+
+  - name: stg_local_bike__categories
+    description: "This model contains information about product's category"
+    columns:
+      - name: category_id
+        description: "Primary key, unique identifier for each category."
+        tests:
+          - not_null
+          - unique
+
+      - name: category_name
+        description: "Category's name"
+        tests:
+          - not_null
+          - unique
+
+  - name: stg_local_bike__products
+    description: "This model contains information about available products."
+    tests:
+      - dbt_expectations.expect_compound_columns_to_be_unique:
+          arguments:
+            column_list:
+              - product_name
+              - product_brand_id
+              - product_category_id
+            row_condition: "product_name is not null and product_brand_id is not null and product_category_id is not null"
+          
+    columns:
+      - name: product_id
+        description: "Primary key, unique identifier for each product."
+        tests:
+          - not_null
+          - unique
+
+      - name: product_name
+        description: "Product's name"
+        tests:
+          - not_null
+
+      - name: product_brand_id
+        description: "Foreign key linking the product to its brand."
+        tests:
+          - not_null
+          - relationships:
+              name: brand_id_foreign_key_in_stg_local_bike__brands
+              arguments:
+                to: ref('stg_local_bike__brands')
+                field: brand_id
+
+      - name: product_category_id
+        description: "Foreign key linking the product to its category."
+        tests:
+          - not_null
+          - relationships:
+              name: category_id_foreign_key_in_stg_local_bike__categories
+              arguments:
+                to: ref('stg_local_bike__categories')
+                field: category_id
+
+      - name: product_model_year
+        description: "Year of the product model (should be between 1970 and next year)."
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value:  "{{ var('min_product_model_year') }}"
+                max_value: "EXTRACT(YEAR FROM CURRENT_DATE())+1"
+                row_condition: "product_model_year is not null"
+              
+      - name: product_list_price
+        description: "Product's list price."
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: "{{ var('min_product_list_price') }}"
+                row_condition: "product_list_price is not null"
+
+  - name: stg_local_bike__stores
+    description: "This model contains information about stores"
+    columns:
+      - name: store_id
+        description: "Primary key, unique identifier for each store."
+        tests:
+          - not_null
+          - unique
+
+      - name: store_name
+        description: "Store's name"
+        tests:
+          - not_null
+          - unique
+
+      - name: store_phone
+        description: "Store's phone"
+        tests:
+          - not_null
+          - unique
+          - dbt_expectations.expect_column_values_to_match_regex:
+              arguments:
+                regex: '^\(\d{3}\)\s\d{3}-\d{4}$'
+                row_condition: "store_phone != ''"
+                is_raw: True
+          
+      - name: store_email
+        description: "Store's email address"
+        tests:
+          - not_null
+          - unique
+          - dbt_expectations.expect_column_values_to_match_regex:
+              arguments:
+                row_condition: "store_email != ''"
+                regex: '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
+                is_raw: True
+
+      - name: store_street
+        description: "Store's street address"
+        tests:
+          - not_null        
+
+      - name: store_city
+        description: "Store's city"
+        tests:
+          - not_null
+
+      - name: store_state
+        description: "Store's state."
+        tests:
+          - accepted_values:
+              name: accepted_values_state
+              arguments:
+                values: "{{ var('allowed_state') }}"
+                
+      - name: store_zip_code
+        description: "Store's ZIP code"
+        tests:
+          - not_null
+
+  - name: stg_local_bike__stocks
+    description: "This model contains information about product stocks."
+    columns:
+      - name: store_product_id
+        description: "Primary key, unique identifier for each product per store."
+        tests:
+          - not_null
+          - unique
+
+      - name: store_id
+        description: "Foreign key linking the product stock to the stores model."
+        tests:
+          - not_null
+          - relationships:
+              name: store_id_foreign_key_in_stg_local_bike__stores
+              arguments:
+                to: ref('stg_local_bike__stores')
+                field: store_id
+
+      - name: product_id
+        description: "Foreign key linking the product stock to the products model."
+        tests:
+          - not_null
+          - relationships:
+              name: product_id_foreign_key_in_stg_local_bike__products
+              arguments:
+                to: ref('stg_local_bike__products')
+                field: product_id
+
+      - name: available_quantity
+        description: "Available product quantity per store."
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                strictly: false
+
+  - name: stg_local_bike__customers
+    description: "This model contains information about customers"
+    tests:
+      - dbt_expectations.expect_compound_columns_to_be_unique:
+          arguments:
+            column_list:
+              - customer_first_name
+              - customer_last_name
+              - customer_email
+            row_condition: "customer_first_name is not null and customer_last_name is not null and customer_email is not null"
+          
+    columns:
+      - name: customer_id
+        description: "Primary key, unique identifier for each product."
+        tests:
+          - unique
+          - not_null
+
+      - name: customer_first_name
+        description: "Customer's first name"
+        tests:
+          - not_null
+
+      - name: customer_last_name
+        description: "Customer's last name"
+        tests:
+          - not_null
+
+      - name: customer_phone
+        description: "Customer's phone"
+
+      - name: customer_email
+        description: "Customer's email address"
+        tests:
+          - not_null
+          - unique
+      
+      - name: customer_street
+        description: "Customer's street address"
+        tests:
+          - not_null        
+
+      - name: customer_city
+        description: "Customer's city"
+        tests:
+          - not_null
+
+      - name: customer_state
+        description: "Customer's state"
+        tests:
+          - accepted_values:
+              name: accepted_customer_state
+              arguments:
+                values: "{{ var('allowed_state') }}"
+
+      - name: customer_zip_code
+        description: "Customer's ZIP code"
+        tests:
+          - not_null
+
+  - name: stg_local_bike__staffs
+    description: "This model contains information about the company's staffs"
+    columns:
+      - name: staff_id
+        description: "Primary key, unique identifier for each store."
+        tests:
+          - not_null
+          - unique
+
+      - name: staff_first_name
+        description: "Staff's first name"
+        tests:
+          - not_null
+
+      - name: staff_last_name
+        description: "Staff's last name"
+        tests:
+          - not_null
+
+      - name: staff_phone
+        description: "Staff's phone"
+        tests:
+          - not_null
+          - unique
+          - dbt_expectations.expect_column_values_to_match_regex:
+              arguments:
+                regex: '^\(\d{3}\)\s\d{3}-\d{4}$'
+                row_condition: "staff_phone != ''"
+                is_raw: True
+          
+      - name: staff_email
+        description: "Staff's email address"
+        tests:
+          - not_null
+          - unique
+          - dbt_expectations.expect_column_values_to_match_regex:
+              arguments:
+                row_condition: "staff_email != ''"
+                regex: '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
+                is_raw: True
+
+      - name: staff_is_active
+        description: "Staff active status?"
+        tests:
+          - not_null
+
+      - name: staff_store_id
+        description: "Foreign key linking the staff to the allocated store."
+        tests:
+          - not_null
+          - relationships:
+              name: store_id_foreign_key_in_stg_local_bike__stores
+              arguments:
+                to: ref('stg_local_bike__stores')
+                field: store_id
+
+      - name: staff_manager_id
+        description: "Foreign key linking the staff_id of the manager (same model)."
+        tests:
+          - relationships:
+              name: staff_id_foreign_key_in_stg_local_bike__staffs
+              arguments:
+                to: ref('stg_local_bike__staffs')
+                field: staff_id
+
+
+  - name: stg_local_bike__orders
+    description: "This model contains information about orders placed by users, including the status of each order."
+    columns:
+      - name: order_id
+        description: "Primary key, unique identifier for each order."
+        tests:
+          - not_null
+          - unique
+
+      - name: order_customer_id
+        description: "Foreign key linking the order to the customer who ordered it."
+        tests:
+          - not_null
+          - relationships:
+              name: customer_id_foreign_key_in_stg_local_bike__customers
+              arguments:
+                to: ref('stg_local_bike__customers')
+                field: customer_id
+
+      - name: order_status
+        description: "The current status of the order."
+        tests:
+          - accepted_values:
+              name: accepted_values_order_status
+              arguments:
+                values: "{{ var('allowed_order_status') }}"
+                quote: false
+
+      - name: order_date
+        description: "Order date"
+        tests:
+          - not_null
+        
+      - name: order_required_date
+        description: "Required date"
+        tests:
+          - not_null
+
+      - name: order_shipped_date
+        description: "Shipping date"
+
+      - name: order_store_id
+        description: "Foreign key linking the order to the store where it was placed."
+        tests:
+          - not_null
+          - relationships:
+              name: store_id_foreign_key_in_stg_local_bike__stores
+              arguments:
+                to: ref('stg_local_bike__stores')
+                field: store_id
+
+      - name: order_staff_id
+        description: "Foreign key linking the order to the staff in charge."
+        tests:
+          - not_null
+          - relationships:
+              name: staff_id_foreign_key_in_stg_local_bike__staffs
+              arguments:
+                to: ref('stg_local_bike__staffs')
+                field: staff_id
+
+  - name: stg_local_bike__order_items
+    description: "This model contains information about product stocks."
+    columns:
+      - name: order_item_id
+        description: "Primary key, unique identifier for each order item."
+        tests:
+          - not_null
+          - unique
+
+      - name: order_item_order_id
+        description: "Foreign key linking to the orders model."
+        tests:
+          - not_null
+          - relationships:
+              name: order_id_foreign_key_in_stg_local_bike__orders
+              arguments:
+                to: ref('stg_local_bike__orders')
+                field: order_id
+
+      - name: order_item_product_id
+        description: "Foreign key linking the products model."
+        tests:
+          - not_null
+          - relationships:
+              name: product_id_foreign_key_in_stg_local_bike__products
+              arguments:
+                to: ref('stg_local_bike__products')
+                field: product_id
+
+      - name: order_item_quantity
+        description: "Product quantity per order item."
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                strictly: true
+  
+      - name: order_item_discount_rate
+        description: "Discount rate applied to this order item (0-1)."
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                max_value: 1
+                strictly: false
+
+      - name: order_item_list_price
+        description: "Product quantity per order item."
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                strictly: true

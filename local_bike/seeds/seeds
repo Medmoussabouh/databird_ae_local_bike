@@ -1,0 +1,13 @@
+version: 2
+
+seeds:
+  - name: allowed_state
+    description: "The authorized state."
+    config:
+      column_types:
+        allowed_state: 'string' # Or 'varchar', 'text', etc.
+    columns:
+      - name: state
+        tests:
+          - unique
+          - not_null
